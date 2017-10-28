@@ -8,7 +8,7 @@
 #include <stdarg.h>
 #include "misc.h"
 
-//signatures data declarations and nesting trees
+//signatures data declarations and nesting 'trees'
 
 #define LBLOCK '\xb0'
 #define MBLOCK '\xb1'
@@ -17,6 +17,9 @@
 #define UPERHALF '\xdc'
 #define LOWERHALF '\xdf'
 #define BLANK '\xff'
+
+#define PROMPT_WIDTH 80
+#define PROMPT_HEIGHT 24
 
 
 enum
@@ -41,25 +44,30 @@ enum
 /*right-lower corner, matrix column and line number product.->\
 //could become the offset's offset from the diagonal.          |
 //(0 = diag, n>0 = line over col, n<0 = col over line)       */
-typedef struct screen{
+typedef struct{
     char** elements;
-    int lu;
-    int ru;
-    int ll;
-    int rl;
-}screen;
+    int height;
+    int width;
+    int hOffset;
+    int vOffset;
+    int size;
+}image;
+
+
+//void oldDisplay(image screen);
+//image oldLoad();
 
 void menu();
-    screen initMen(size_t cols, size_t lines);
+    image initMen(size_t cols, size_t lines);
 
     void options();
     void credits(char** menu, FILE* cred);
     void game();
         int logic(char* mode, char* arg);
 
-        screen load();
+        int load(FILE* source, image* target, int width, int height);
 
-        void display(screen image);
+        void display(image screen, int height, int width);
             char** initDisp(char **scr, size_t width, size_t height);
 
 
@@ -67,7 +75,7 @@ int main()
 {
     //use sparingly, this is dangerous.
 
-    char buffer[79*24] = {0};
+    char buffer[80*24] = {0};
     setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
 
     //setvbuf() changes the buffer size so that printf() can write to the command window faster,
@@ -84,9 +92,12 @@ int main()
 ///game loop
 void game()
 {
-    screen bg = load();
-    screen full = load();
-
+    image bg;
+    image full;
+    
+    load(fopen("./files/background.txt", "r"), &bg, 24, 80);
+    load(fopen("./files/background.txt", "r"), &full, 24, 80);
+    
     char* player = "\xDA\xC1\xBF";
     int playerPosition = (strlen(full.elements[22])/2-1);
     char* enemies[] = {"\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94"};
@@ -109,7 +120,7 @@ void game()
         strncpy(full.elements[22]+playerPosition, player, sizeof(player)-1);
 
 
-        display(full);
+        display(full, 24, 80);
 
         switch(logic("eval_key", NULL))
         {
@@ -144,7 +155,7 @@ void game()
 
 }
 
-///Returns useful integers for logic and calls certain functions; processing mode and args.
+///Returns useful integers for logic and calls certain functions; takes processing mode and arguments.
 int logic(char* mode, char* arg)
 {
     if(!strcmp(mode, "eval_key"))
@@ -184,7 +195,7 @@ int logic(char* mode, char* arg)
     }
     if(!strcmp(mode, "setting"))
     {
-        FILE* cfg = fopen("settings.ini", "r+");
+        FILE* cfg = fopen("./files/settings.ini", "r+");
         if(!strcmp(arg, "color"))
         {
             char* option = malloc(30);
@@ -218,17 +229,42 @@ int logic(char* mode, char* arg)
 }
 
 ///Renders any properly formatted screen
-void display(screen image)
+void display(image screen, int height, int width)
 {
-    int i, j;
     system("cls");
-    for(i = image.lu; i < image.ll; i++){
-        for(j = image.lu; j < image.ru; j++)
-            printf("%c", image.elements[i][j]);
-        printf("\n");
-    }
-    fflush(stdout);
+    //Attempt at O(n). I have no idea if this really worked.
+    int i;
+    
+    //If any of the to-be-printed lengths are greater the size of the prompt,
+    //use the prompt size instead, else, use the length max. This prevents
+    //indexes out of bounds.
+    int wMax = (screen.width - screen.hOffset) <= PROMPT_WIDTH? (screen.width - screen.hOffset): PROMPT_WIDTH,
+    hMax = (screen.height - screen.vOffset) <= PROMPT_HEIGHT? (screen.height - screen.vOffset): PROMPT_HEIGHT;
+    
+    //Check for redundancy
+    if(height >= hMax)
+        if(width >= wMax)
+            for(i = 0; i < hMax*wMax; i++)
+                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//full prompt
+        else
+            for(i = 0; i < hMax*width; i++)
+                if((i % width) != (width-1))//if the rest of the division of the counter and the width is not the same as the width-1
+                    printf("\xB0");//thinner than prompt
+                else
+                    printf("\xB0\n");
+    else
+        if(width >= wMax)
+            for(i = 0; i < height*wMax; i++)
+                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//shorter than prompt
+        else
+            for(i = 0; i < height*width; i++)
+                if((i % width) != (width-1))
+                    printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+                else
+                    printf("\n");
+    return;
 }
+
 
 ///Loads initial screen where none is present, ergo: initializes display.
 char** initDisp(char **scr, size_t width, size_t height)
@@ -257,7 +293,7 @@ char** initDisp(char **scr, size_t width, size_t height)
 
 ///Calls and handles menu screen. Possibly, the logic and visual functions can be made to handle respective operations on scope.
 void menu(){
-    screen title = initMen(79, 24);
+    image title = initMen(80, 24);
     char** opts = retrieveOptions(title.elements[21]+1, '\xB0', '|');
     int option = 0;
     *opts[option] = 178;
@@ -267,7 +303,7 @@ void menu(){
     while(stay)
     {
         checkFocus();
-        display(title);
+        display(title, 24, 80);
         switch(logic("eval_key", NULL))
         {
             case 0:
@@ -309,7 +345,7 @@ void menu(){
                         options();
                         break;
                     case 2:
-                        credits(title.elements, fopen("./levels/credits.txt", "r"));
+                        credits(title.elements, fopen("./files/credits.txt", "r"));
                         break;
                 }
                 break;
@@ -324,9 +360,12 @@ void menu(){
 }
 
 ///Returns a "simple" menu with given number lines and their respective prompts. Initializes menu.
-screen initMen(size_t cols, size_t lines)
+image initMen(size_t cols, size_t lines)
 {
-    screen setup = {initDisp(NULL, cols, lines), 0, cols, lines, cols*lines};
+    image setup = {initDisp(NULL, cols, lines), lines, cols, 0, 0, cols*lines};
+    
+    //image setup;
+    //load(fopen("./files/background.txt", "r"), &setup, 24, 80);
 
 
     int i;
@@ -377,7 +416,7 @@ void credits(char** menu, FILE* cred)
     }
     *(creds+credsize) = NULL;
 
-    screen credits = initMen(79, 24);
+    image credits = initMen(79, 24);
     for(i = 0; i < 22+credsize-1; i++)                                  //credits roll loop
     {
         checkFocus();
@@ -399,7 +438,7 @@ void credits(char** menu, FILE* cred)
                 k--;
 
         }
-        display(credits);                                               //call render function
+        display(credits, 24, 80);                                       //call render function
         delay(170);                                                     //menu roll speed
         int quit;                                                       //variable that holds the logic evaluation of key press
         if((quit = logic("eval_key", NULL)) == 1 || quit == 2)          //check if user pressed ESC or X
@@ -412,25 +451,85 @@ void credits(char** menu, FILE* cred)
     fclose(cred);
 }
 
-screen load()
+/** 
+*   Loads FILE into image,
+*   allocates height*(sizeof(char*)) + height*width*(sizeof(char*)) bytes of memory, 
+*   returns boolean values for success.
+*/ 
+int load(FILE* source, image* target, int height, int width)
 {
-    FILE* level = fopen("./levels/main.txt", "r");
-    char** image = (char**)malloc(24*sizeof(char*));
+    int i;
+    char c;
+    
+    target->elements = (char**)calloc(height, sizeof(char*));
+    for(i = 0; i < height; i++)
+        target->elements[i] = (char*)calloc(width+1, sizeof(char));
+    
+    for(i = 0; i < height*width; i++)
+    {
+        c = fgetc(source);
+        if(c == EOF)
+        {
+            goto success;
+        }
+        if(c == '#')
+        {
+            while(c != '\n')
+                c = fgetc(source);
+        }
+        while(c == '\n')
+            if(c == EOF)
+                goto success;
+            else
+                c = fgetc(source);
+        target->elements[(int)(i/width)][i%width] = c;
+    }
+    
+    //I know. It's to re-utilize code. Could(and should) be done in a function but things just aren't working so well right now.
+    //Ends the function returning true and setting important values.
+    success:
+        fclose(source);
+        target->width = (i == 0)? 0: ((i-1)%width)+1;
+        target->height = (int)(i/width);
+        target->vOffset = 0;
+        target->hOffset = 0;
+        target->size = width*height;
+        return 1;
+}
+
+/* old functions
+void oldDisplay(image screen)
+{
+    int i, j;
+    system("cls");
+    for(i = screen.lu; i < screen.height; i++){
+        for(j = screen.lu; j < screen.width; j++)
+            printf("%c", screen.elements[i][j]);
+        printf("\n");
+    }
+    fflush(stdout);
+}
+
+image oldLoad()
+{
+    FILE* level = fopen("./files/main.txt", "r");
+    char** target = (char**)malloc(24*sizeof(char*));
     int i;
 
     for(i = 0; i < 24; i++)
     {
-        image[i] = (char*)malloc(81);
-        if(fgets(image[i], 81, level) == NULL)
+        target[i] = (char*)malloc(81);
+        if(fgets(target[i], 81, level) == NULL)
         {
-            free(image[i]);
+            free(target[i]);
             break;
         } else {
-            if(image[i][strlen(image[i])-1] == '\n')
-                image[i][strlen(image[i])-1] = '\0';
+            if(target[i][strlen(target[i])-1] == '\n')
+                target[i][strlen(target[i])-1] = '\0';
         }
     }
     fclose(level);
 
-    return (screen){image, 0, strlen(image[0]), i, i*(strlen(image[0]))};
+    return (image){target, 0, strlen(target[0]), i, i*(strlen(target[0]))};
 }
+*/
