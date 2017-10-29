@@ -67,7 +67,7 @@ void menu();
 
         int load(FILE* source, image* target, int width, int height);
 
-        void display(image screen, int height, int width);
+        int display(image screen, int height, int width);
             char** initDisp(char **scr, size_t width, size_t height);
 
 
@@ -229,40 +229,48 @@ int logic(char* mode, char* arg)
 }
 
 ///Renders any properly formatted screen
-void display(image screen, int height, int width)
+int display(image screen, int height, int width)
 {
     system("cls");
+    if((height < 1)||(width < 1)||((screen.width - screen.hOffset) < 1)||((screen.height - screen.vOffset) < 1))
+        return 0;
+    
     //Attempt at O(n). I have no idea if this really worked.
     int i;
     
-    //If any of the to-be-printed lengths are greater the size of the prompt,
-    //use the prompt size instead, else, use the length max. This prevents
-    //indexes out of bounds.
-    int wMax = (screen.width - screen.hOffset) <= PROMPT_WIDTH? (screen.width - screen.hOffset): PROMPT_WIDTH,
-    hMax = (screen.height - screen.vOffset) <= PROMPT_HEIGHT? (screen.height - screen.vOffset): PROMPT_HEIGHT;
+    /*If any of the to-be-printed lengths are greater the size of the prompt,
+    use the prompt size instead, else, use the length max. This prevents
+    indexes out of bounds.*/
+    int wMax = ((screen.width - screen.hOffset) <= PROMPT_WIDTH)? (screen.width - screen.hOffset): PROMPT_WIDTH,
+    hMax = ((screen.height - screen.vOffset) <= PROMPT_HEIGHT)? (screen.height - screen.vOffset): PROMPT_HEIGHT;
     
     //Check for redundancy
-    if(height >= hMax)
-        if(width >= wMax)
-            for(i = 0; i < hMax*wMax; i++)
-                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//full prompt
-        else
-            for(i = 0; i < hMax*width; i++)
-                if((i % width) != (width-1))//if the rest of the division of the counter and the width is not the same as the width-1
-                    printf("\xB0");//thinner than prompt
-                else
-                    printf("\xB0\n");
+    
+    if(width == PROMPT_WIDTH)
+        for(i = 0; i < height*PROMPT_WIDTH; i++)
+        {
+            if(screen.elements[(int)(i/width)][i%width] != '\0')
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+            else
+            {
+                printf("\n");
+                i += (width-1)-(i % width);
+            }   
+        }
     else
-        if(width >= wMax)
-            for(i = 0; i < height*wMax; i++)
-                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//shorter than prompt
-        else
-            for(i = 0; i < height*width; i++)
-                if((i % width) != (width-1))
-                    printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
-                else
-                    printf("\n");
-    return;
+        for(i = 0; i < height*width; i++)
+        {
+            if(((i % width) != (width-1)) && (screen.elements[(int)(i/width)][i%width] != '\0'))
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+            else
+            {
+                printf("%c\n", screen.elements[(int)(i/width)][i%width]);
+                i += (width-1)-(i % width);
+            }   
+        }
+        
+    fflush(stdout);
+    return 1;
 }
 
 

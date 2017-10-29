@@ -14,7 +14,7 @@ typedef struct{
     int size;
 }image;
 
-int load(FILE* source, image* target, int width, int height);
+int load(FILE* source, image* target/*, int width, int height*/);
 int display(image screen, int width, int height);
 int overlay(image background, image foreground, image* target, int vOffset, int hOffset);
 void genBorder();
@@ -24,20 +24,21 @@ int main(void)
     image background = {0};
     image foreground = {0};
     image screen = {0};
-    image invader = {0};
+    image logo = {0};
     
-    load(fopen("./files/background.txt", "r"), &background, 24, 80);
-        printf("background: %d, %d, %d\n", background.height, background.width, background.size);
-        display(background, 24, 80);
-    load(fopen("./files/border.txt", "r"), &foreground, 24, 80);
-        printf("border: %d, %d, %d\n", foreground.height, foreground.width, foreground.size);
-        display(foreground, 24, 80);
-    load(fopen("./files/invader.txt", "r"), &invader, 24, 80);
-        printf("logo: %d, %d, %d\n", invader.height, invader.width, invader.size);
-        display(invader, 24, 80);
+    load(fopen("./files/background.txt", "r"), &background);
+          printf("[background: %d, %d, %d]\n", background.height, background.width, background.size);
+          display(background, background.height, background.width);
+    load(fopen("./files/border.txt", "r"), &foreground);
+          printf("[border: %d, %d, %d]\n", foreground.height, foreground.width, foreground.size);
+          display(foreground, foreground.height, foreground.width);
+    load(fopen("./files/cool.txt", "r"), &logo);
+          printf("[logo: %d, %d, %d]\n", logo.height, logo.width, logo.size);
+          display(logo, logo.height, logo.width);
+    
     overlay(background, foreground, &screen, 0, 0);
-        printf("screen with border: %d, %d, %d\n", screen.height, screen.width, screen.size);
-        if(display(screen, 24, 80))
+        printf("[screen with border]: %d, %d, %d\n", screen.height, screen.width, screen.size);
+        if(display(screen, screen.height, screen.width))
             while(!kbhit()){};
     
     return 0;
@@ -50,14 +51,20 @@ int overlay(image background, image foreground, image* target, int vOffset, int 
     
     target->elements = (char**)calloc(background.height, sizeof(char*));
     for(i = 0; i < background.height; i++)
-        target->elements[i] = (char*)calloc(background.width, sizeof(char));
+        target->elements[i] = (char*)calloc(background.width+1, sizeof(char));
     
     for(i = 0; i < background.size; i++)
     {
-        target->elements[(int)(i/background.width)][i%background.width] = (foreground.elements[(int)(i/background.width)][i%background.width] == ' ')? 
+        target->elements[(int)(i/background.width)][(i)%background.width] = (foreground.elements[(int)(i/background.width)][i%background.width] == ' ')? 
                                                         background.elements[(int)(i/background.width)][i%background.width]:
                                                         foreground.elements[(int)(i/background.width)][i%background.width];
     }
+    printf("\"debug\"\n\t%s: %d\n\t%s: %d\n\t%s: %d\n\t%s: %d\n\t%s: %d\n\n",
+           "i", i, "height", background.height,
+           "width: ", background.width, 
+           "indexline", (int)(i/background.width),
+           "indexcol", (i-1)%(background.width));
+    
     target->height = background.height;
     target->width = background.width;
     target->hOffset = background.hOffset;
@@ -65,43 +72,56 @@ int overlay(image background, image foreground, image* target, int vOffset, int 
     target->size = background.size;
 }
 
-int load(FILE* source, image* target, int height, int width)
+int load(FILE* source, image* target/*, int height, int width*/)
 {
-    int i;
-    char c;
+    int i, height = 0, width = 0, hMax = 0, wMax = 0;
+    char c = 0;
     
-    target->elements = (char**)calloc(height, sizeof(char*));
-    for(i = 0; i < height; i++)
-        target->elements[i] = (char*)calloc(width+1, sizeof(char));
+    target->elements = (char**)calloc(1, sizeof(char*));//line to be filled
+    target->elements[0] = (char*)calloc(1, sizeof(char));//char to be filled
     
-    for(i = 0; i < height*width; i++)
+    while((c = getc(source))!= EOF)
     {
-        c = fgetc(source);
-        if(c == EOF)
-        {
-            goto success;
-        }
         if(c == '#')
+        {
             while(c != '\n')
-                c = fgetc(source);
-        while(c == '\n')
-            if(c == EOF)
-                goto success;
-            else
-                c = fgetc(source);
-        target->elements[(int)(i/width)][i%width] = c;
+            {
+                c = getc(source);
+                if(c == EOF)
+                    break;
+            }
+        }
+        if(c == '\n')
+        {
+            //printf("%c", c);
+            target->elements[height][width] = '\0';
+            width = 0;
+            height++;
+            target->elements = (char**)realloc(target->elements, (height+1)*sizeof(char*));
+            target->elements[height] = (char*)calloc(width+1, sizeof(char));
+        }
+        else
+        {
+            //printf("%c", c);
+            target->elements[height][width] = c;
+            width++;
+            if(wMax < width)//{
+                wMax = width;
+                //printf("%d\n", wMax);
+            //}
+            target->elements[height] = (char*)realloc(target->elements[height], width+1*sizeof(char));
+        }
     }
+    target->elements[height][width] = '\0';
     
-    //I know. It's to re-utilize code. Could(and should) be done in a function but things just aren't working so well right now.
-    //Ends the function returning true and setting important values.
-    success:
-        fclose(source);
-        target->width = (i == 0)? 0: ((i-1)%width)+1;
-        target->height = (int)(i/width);
-        target->vOffset = 0;
-        target->hOffset = 0;
-        target->size = width*height;
-        return 1;
+    target->width = wMax;
+    target->height = height+1;
+    target->vOffset = 0;
+    target->hOffset = 0;
+    target->size = wMax*(height+1);
+    printf("\n\"debug\":\n\t height:%d\n\t width:%d\n\n", height+1, wMax);
+    
+    return 1;
 }
 
 int display(image screen, int height, int width)
@@ -115,30 +135,33 @@ int display(image screen, int height, int width)
     //If any of the to-be-printed lengths are greater the size of the prompt,
     //use the prompt size instead, else, use the length max. This prevents
     //indexes out of bounds.
-    int wMax = (screen.width - screen.hOffset) <= PROMPT_WIDTH? (screen.width - screen.hOffset): PROMPT_WIDTH,
-    hMax = (screen.height - screen.vOffset) <= PROMPT_HEIGHT? (screen.height - screen.vOffset): PROMPT_HEIGHT;
-    
+    int wMax = ((screen.width - screen.hOffset) <= PROMPT_WIDTH)? (screen.width - screen.hOffset): PROMPT_WIDTH,
+    hMax = ((screen.height - screen.vOffset) <= PROMPT_HEIGHT)? (screen.height - screen.vOffset): PROMPT_HEIGHT;
+    //
     //Check for redundancy
-    if(height >= hMax)
-        if(width >= wMax)
-            for(i = 0; i < hMax*wMax; i++)
-                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//full prompt
-        else
-            for(i = 0; i < hMax*width; i++)
-                if((i % width) != (width-1))//if the rest of the division of the counter and the width is not the same as the width-1
-                    printf("\xB0");//thinner than prompt
-                else
-                    printf("\xB0\n");
+    
+    if(width == PROMPT_WIDTH)
+        for(i = 0; i < height*PROMPT_WIDTH; i++)
+        {
+            if(screen.elements[(int)(i/width)][i%width] != '\0')
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+            else
+            {
+                printf("\n");
+                i += (width-1)-(i % width);
+            }   
+        }
     else
-        if(width >= wMax)
-            for(i = 0; i < height*wMax; i++)
-                printf("%c", screen.elements[(int)(i/wMax)][i%wMax]);//shorter than prompt
-        else
-            for(i = 0; i < height*width; i++)
-                if((i % width) != (width-1))
-                    printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
-                else
-                    printf("\n");
+        for(i = 0; i < height*width; i++)
+        {
+            if(((i % width) != (width-1)) && (screen.elements[(int)(i/width)][i%width] != '\0'))
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+            else
+            {
+                printf("%c\n", screen.elements[(int)(i/width)][i%width]);
+                i += (width-1)-(i % width);
+            }   
+        }
     return 1;
 }
 
