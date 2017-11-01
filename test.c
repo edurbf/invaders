@@ -30,7 +30,7 @@ int testfunctions()
 {
     image background = {0};
     image foreground = {0};
-    //image logo = {0};
+    image logo = {0};
 
     load(fopen("./files/background.txt", "r"), &background);
           //printf("[background: %d, %d, %d]\n", background.height, background.width, background.size);
@@ -38,9 +38,9 @@ int testfunctions()
     load(fopen("./files/border.txt", "r"), &foreground);
           //printf("[border: %d, %d, %d]\n", foreground.height, foreground.width, foreground.size);
           display(foreground, foreground.height, foreground.width);
-    /*load(fopen("./files/invader.txt", "r"), &logo);
-          printf("[logo: %d, %d, %d]\n", logo.height, logo.width, logo.size);
-          display(logo, logo.height, logo.width);*/
+    load(fopen("./files/mk2.txt", "r"), &logo);
+          //printf("[logo: %d, %d, %d]\n", logo.height, logo.width, logo.size);
+          display(logo, logo.height, logo.width);
 
     overlay(background, foreground, &background);
 

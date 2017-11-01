@@ -103,10 +103,13 @@ void game()
     load(fopen("./files/background.txt", "r"), &bg);
     load(fopen("./files/background.txt", "r"), &full);
 
-    char* player = "\xDA\xC1\xBF";
-    point pPos = {full.width/2-1, 23};
-    char enemy = '\xCA';
+    char* player = "\xDA\xC1\xBF";                                          //player 'sprite'
+    point pPos = {full.width/2-1, 23};                                      //place player on center of last line
+    char shot = '^';
+    point sPos = {0};
+    char enemy = '\xCA';                                                    //enemy 'sprite'
     point ePos = {(full.width/20), (full.height/8)};
+    int step = 4;
 
     bool stay = true;
     int i/*, j*/;
@@ -123,6 +126,8 @@ void game()
 
         strncpy(full.elements[pPos.y]+pPos.x, player, sizeof(player)-1);
         full.elements[ePos.y][ePos.x] = enemy;
+        if(sPos.x != 0)
+            full.elements[sPos.y][sPos.x] = shot;
 
         display(full, 24, 80);
 
@@ -145,6 +150,8 @@ void game()
             case 6:
                 printf("\a");
                 fflush(stdout);
+                sPos.x = pPos.x + 1;
+                sPos.y = pPos.y - 1;
                 break;
             default:
                 system("color 0C");
@@ -154,18 +161,31 @@ void game()
 
         if((ePos.y & 1) != 0)
         {
-            if((ePos.x + 1) != full.width-2)
-                ePos.x++;
-            else if((ePos.y + 1) != (full.height-1))
+            if((ePos.x + step) < full.width-2)
+                ePos.x += step;
+            else if((ePos.y + 1) < (full.height-1))
                 ePos.y++;
             else break;
         }else
         {
-            if((ePos.x - 1) != 2)
-                ePos.x--;
-            else if((ePos.y + 1) != (full.height-1))
+            if((ePos.x - step) > 2)
+                ePos.x -= step;
+            else if((ePos.y + 1) < (full.height-1))
                 ePos.y++;
             else break;
+        }
+
+        if(sPos.x != 0)
+        {
+            if((sPos.y - step) > 0)
+            {
+                for(i = 1; i <= step; i++)
+                    if(full.elements[sPos.y-i][sPos.x] == enemy)
+                        ePos = (point){2, full.height-2};
+                sPos.y -= step;
+            }
+            else
+                sPos.x = 0;
         }
     }
 
