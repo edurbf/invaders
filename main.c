@@ -65,10 +65,11 @@ void menu();
     void game();
         int logic(char* mode, char* arg);
 
-        int load(FILE* source, image* target, int width, int height);
+        int load(FILE* source, image* target);
+            int clear(image* target);
 
         int display(image screen, int height, int width);
-            char** initDisp(char **scr, size_t width, size_t height);
+            void initDisp(image* init);
 
 
 int main()
@@ -94,21 +95,18 @@ void game()
 {
     image bg;
     image full;
-    
-    load(fopen("./files/background.txt", "r"), &bg, 24, 80);
-    load(fopen("./files/background.txt", "r"), &full, 24, 80);
-    
+
+    load(fopen("./files/background.txt", "r"), &bg);
+    load(fopen("./files/background.txt", "r"), &full);
+
     char* player = "\xDA\xC1\xBF";
     int playerPosition = (strlen(full.elements[22])/2-1);
-    char* enemies[] = {"\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94", "\x94"};
+    char* enemy = "\x94";
 
     bool stay = true;
     int i, j;
 
     centerCpy(full.elements[22], player);
-    for(i = 1; i < 11; i++)
-        formatCpy(full.elements[i], enemies, 10);
-
 
     while(stay)
     {
@@ -118,7 +116,6 @@ void game()
             strncpy(full.elements[i], bg.elements[i], 80);
 
         strncpy(full.elements[22]+playerPosition, player, sizeof(player)-1);
-
 
         display(full, 24, 80);
 
@@ -132,7 +129,7 @@ void game()
                 break;
             case 3:
             case 7:
-                playerPosition = (playerPosition+1 < 76)? playerPosition+1: playerPosition;
+                playerPosition = (playerPosition+1 < 77)? playerPosition+1: playerPosition;
                 break;
             case 4:
             case 8:
@@ -151,8 +148,9 @@ void game()
 
     }
 
-    free(player);
 
+    clear(&bg);
+    clear(&full);
 }
 
 ///Returns useful integers for logic and calls certain functions; takes processing mode and arguments.
@@ -168,14 +166,18 @@ int logic(char* mode, char* arg)
                 case ESC:
                     return 1;
                 case 'x':
+                case 'X':
                     return 2;
                 case 'd':
+                case 'D':
                     return 3;
                 case 'a':
+                case 'A':
                     return 4;
                 case ENTER:
                     return 5;
                 case 'e':
+                case 'E':
                 case SPACEBAR:
                     return 6;
                 case KEY_DIRECTION:
@@ -203,11 +205,85 @@ int logic(char* mode, char* arg)
                 if(strcmp(option, "color"))
                 {
                     fscanf(cfg, "%s", option);
-                        if(!strcmp(option, "green"))
+                        if(!strcmp(option, "matrix"))
                         {
                             option = "color 0A";
                             system(option);
-                            printf("\a");
+                        }
+                        else if(!strcmp(option, "paper"))
+                        {
+                            option = "color 78";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "turbo"))
+                        {
+                            option = "color 1E";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "contrast"))
+                        {
+                            option = "color C9";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "ice"))
+                        {
+                            option = "color 17";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "scorpion"))
+                        {
+                            option = "color 0E";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "camo"))
+                        {
+                            option = "color 26";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "blood"))
+                        {
+                            option = "color 4C";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "haunted"))
+                        {
+                            option = "color 40";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "magic"))
+                        {
+                            option = "color 5C";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "pimp"))
+                        {
+                            option = "color 5D";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "gold"))
+                        {
+                            option = "color 6E";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "ink"))
+                        {
+                            option = "color 80";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "toxic"))
+                        {
+                            option = "color EA";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "plutonium"))
+                        {
+                            option = "color A8";
+                            system(option);
+                        }
+                        else if(!strcmp(option, "focus"))
+                        {
+                            option = "color FC";
+                            system(option);
                         }
                         else
                         {
@@ -216,8 +292,13 @@ int logic(char* mode, char* arg)
                             system(out);
                             free(out);
                         }
+                    free(option);
+                    fclose(cfg);
+                    return 1;
                 }
+            fclose(cfg);
             free(option);
+            return 0;
         }
         fclose(cfg);
     }
@@ -234,70 +315,82 @@ int display(image screen, int height, int width)
     system("cls");
     if((height < 1)||(width < 1)||((screen.width - screen.hOffset) < 1)||((screen.height - screen.vOffset) < 1))
         return 0;
-    
+
     //Attempt at O(n). I have no idea if this really worked.
     int i;
-    
+
     /*If any of the to-be-printed lengths are greater the size of the prompt,
     use the prompt size instead, else, use the length max. This prevents
     indexes out of bounds.*/
     int wMax = ((screen.width - screen.hOffset) <= PROMPT_WIDTH)? (screen.width - screen.hOffset): PROMPT_WIDTH,
     hMax = ((screen.height - screen.vOffset) <= PROMPT_HEIGHT)? (screen.height - screen.vOffset): PROMPT_HEIGHT;
-    
-    //Check for redundancy
-    
+
+{
     if(width == PROMPT_WIDTH)
         for(i = 0; i < height*PROMPT_WIDTH; i++)
         {
             if(screen.elements[(int)(i/width)][i%width] != '\0')
-                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//can be shorter than prompt
             else
             {
                 printf("\n");
                 i += (width-1)-(i % width);
-            }   
+            }
         }
     else
         for(i = 0; i < height*width; i++)
         {
             if(((i % width) != (width-1)) && (screen.elements[(int)(i/width)][i%width] != '\0'))
-                printf("%c", screen.elements[(int)(i/width)][i%width]);//smaller than prompt(both)
+                printf("%c", screen.elements[(int)(i/width)][i%width]);//thinner than prompt
             else
             {
                 printf("%c\n", screen.elements[(int)(i/width)][i%width]);
                 i += (width-1)-(i % width);
-            }   
+            }
         }
-        
+    }
     fflush(stdout);
     return 1;
 }
 
 
 ///Loads initial screen where none is present, ergo: initializes display.
-char** initDisp(char **scr, size_t width, size_t height)
+///An proper equivalent should be a load() of the background.txt merged with border.txt
+void initDisp(image* init)
 {
-    int i, j;
-    if(!scr)
-    {
-        scr = (char**)malloc(height*sizeof(char*));
-        for(i = 0; i < height; i++)
-            scr[i] = (char*)malloc(width);
+    image borders;
 
-        for(i = 0; i < height; i++){
-            for(j = 0; j < width; j++){
-                scr[i][j] = (((i==0) || (i==height-1))?
-                                            ((j==0) || (j==width-1))?
-                                                '*'
-                                                :'-'
-                                            :((j==0) || (j==width-1))?
-                                                '|'
-                                                :176);
-            }
-        }
-    }
-    return scr;
+    load(fopen("./files/background.txt", "r"), init);
+    load(fopen("./files/border.txt", "r"), &borders);
+    mergeImg(*init, borders, init, 0, 0);
+    clear(&borders);
 }
+
+int mergeImg(image background, image foreground, image* target, int vOffset, int hOffset)
+{
+    int i;
+
+    target->elements = (char**)calloc(background.height, sizeof(char*));
+    for(i = 0; i < background.height; i++)
+        target->elements[i] = (char*)calloc(background.width+1, sizeof(char));
+
+    for(i = 0; i < background.size; i++)
+    {
+        if(foreground.elements[(int)(i/background.width)][i%background.width] != '\0')
+        {
+            target->elements[(int)(i/background.width)][(i)%background.width] = (   foreground.elements[(int)(i/background.width)][i%background.width] == ' ')?
+                                                                                    background.elements[(int)(i/background.width)][i%background.width]:
+                                                                                    foreground.elements[(int)(i/background.width)][i%background.width];
+        }//--------------------------------------------------------------------------------------------------------------------------------------------|
+    }
+
+    target->height = background.height;
+    target->width = background.width;
+    target->hOffset = background.hOffset;
+    target->vOffset = background.vOffset;
+    target->size = background.size;
+}
+
 
 ///Calls and handles menu screen. Possibly, the logic and visual functions can be made to handle respective operations on scope.
 void menu(){
@@ -365,15 +458,16 @@ void menu(){
         delay(33);
     }
     free(opts);
+    clear(&title);
 }
+
 
 ///Returns a "simple" menu with given number lines and their respective prompts. Initializes menu.
 image initMen(size_t cols, size_t lines)
 {
-    image setup = {initDisp(NULL, cols, lines), lines, cols, 0, 0, cols*lines};
-    
-    //image setup;
-    //load(fopen("./files/background.txt", "r"), &setup, 24, 80);
+    image setup;
+
+    initDisp(&setup);
 
 
     int i;
@@ -401,6 +495,8 @@ image initMen(size_t cols, size_t lines)
     return setup;
 }
 
+
+///TO DO: main menu options
 void options()
 {
     logic("","");
@@ -424,7 +520,7 @@ void credits(char** menu, FILE* cred)
     }
     *(creds+credsize) = NULL;
 
-    image credits = initMen(79, 24);
+    image credits = initMen(80, 24);
     for(i = 0; i < 22+credsize-1; i++)                                  //credits roll loop
     {
         checkFocus();
@@ -434,7 +530,7 @@ void credits(char** menu, FILE* cred)
         if(i < 22){
 
             for(j = 0; j < k; j++)
-                centerCpy(credits.elements[22-i+j], creds[j]);          //loads first lines
+                centerCpy(credits.elements[22-i+j], creds[j]);          //loads first lines until screen is full with 'em
             if(k < credsize)
                 k++;
 
@@ -453,57 +549,88 @@ void credits(char** menu, FILE* cred)
             break;                                                      //quit loop
     }
 
+    clear(&credits);
     for(i = 0; i < credsize; i++)
         free(creds[i]);
     free(creds);
     fclose(cred);
 }
 
-/** 
+
+/**
 *   Loads FILE into image,
-*   allocates height*(sizeof(char*)) + height*width*(sizeof(char*)) bytes of memory, 
+*   allocates dynamically depending on file size; sets null-terminators and theoretically creates uneven matrices.
 *   returns boolean values for success.
-*/ 
-int load(FILE* source, image* target, int height, int width)
+*/
+int load(FILE* source, image* target)
 {
-    int i;
-    char c;
-    
-    target->elements = (char**)calloc(height, sizeof(char*));
-    for(i = 0; i < height; i++)
-        target->elements[i] = (char*)calloc(width+1, sizeof(char));
-    
-    for(i = 0; i < height*width; i++)
+    int i, height = 0, width = 0, hMax = 0, wMax = 0;
+    char c = 0;
+
+    target->elements = (char**)calloc(1, sizeof(char*));//line to be filled
+    target->elements[0] = (char*)calloc(1, sizeof(char));//char to be filled
+
+    while((c = getc(source))!= EOF)
     {
-        c = fgetc(source);
-        if(c == EOF)
-        {
-            goto success;
-        }
         if(c == '#')
         {
             while(c != '\n')
-                c = fgetc(source);
+            {
+                c = getc(source);
+                if(c == EOF)
+                    break;
+            }
         }
-        while(c == '\n')
-            if(c == EOF)
-                goto success;
-            else
-                c = fgetc(source);
-        target->elements[(int)(i/width)][i%width] = c;
+        if(c == '\n')
+        {
+            //printf("%c", c);
+            target->elements[height][width] = '\0';
+            width = 0;
+            height++;
+            target->elements = (char**)realloc(target->elements, (height+1)*sizeof(char*));
+            target->elements[height] = (char*)calloc(width+1, sizeof(char));
+        }
+        else
+        {
+            //printf("%c", c);
+            target->elements[height][width] = c;
+            width++;
+            if(wMax < width)//{
+                wMax = width;
+                //printf("%d\n", wMax);
+            //}
+            target->elements[height] = (char*)realloc(target->elements[height], width+1*sizeof(char));
+        }
     }
-    
-    //I know. It's to re-utilize code. Could(and should) be done in a function but things just aren't working so well right now.
-    //Ends the function returning true and setting important values.
-    success:
-        fclose(source);
-        target->width = (i == 0)? 0: ((i-1)%width)+1;
-        target->height = (int)(i/width);
-        target->vOffset = 0;
-        target->hOffset = 0;
-        target->size = width*height;
-        return 1;
+    target->elements[height][width] = '\0';
+
+    target->width = wMax;
+    target->height = height+1;
+    target->vOffset = 0;
+    target->hOffset = 0;
+    target->size = wMax*(height+1);
+
+    return 1;
 }
+
+
+int clear(image* target)
+{
+    int i;
+    for(i = 0; i < target->height; i++)
+    {
+        free(target->elements[i]);
+        target->elements[i] = NULL;
+    }
+
+    target->height = 0;
+    target->size = target->width;
+    free(target->elements);
+    target->elements = NULL;
+    target->width = 0;
+    target->size = 0;
+}
+
 
 /* old functions
 void oldDisplay(image screen)
