@@ -53,6 +53,10 @@ typedef struct{
     int size;
 }image;
 
+typedef struct{
+    int x;
+    int y;
+}point;
 
 //void oldDisplay(image screen);
 //image oldLoad();
@@ -100,22 +104,25 @@ void game()
     load(fopen("./files/background.txt", "r"), &full);
 
     char* player = "\xDA\xC1\xBF";
-    int playerPosition = (strlen(full.elements[22])/2-1);
-    char* enemy = "\x94";
+    point pPos = {full.width/2-1, 23};
+    char enemy = '\xCA';
+    point ePos = {(full.width/20), (full.height/8)};
 
     bool stay = true;
-    int i, j;
+    int i/*, j*/;
 
-    centerCpy(full.elements[22], player);
+    centerCpy(full.elements[pPos.y], player);
 
     while(stay)
     {
         checkFocus();
 
-        for(i = 0; i < 24; i++)
-            strncpy(full.elements[i], bg.elements[i], 80);
+        mergeImg(full, bg, &full, 0, 0);
+        //for(i = 0; i < 24; i++)
+        //    strncpy(full.elements[i], bg.elements[i], 80);
 
-        strncpy(full.elements[22]+playerPosition, player, sizeof(player)-1);
+        strncpy(full.elements[pPos.y]+pPos.x, player, sizeof(player)-1);
+        full.elements[ePos.y][ePos.x] = enemy;
 
         display(full, 24, 80);
 
@@ -129,11 +136,11 @@ void game()
                 break;
             case 3:
             case 7:
-                playerPosition = (playerPosition+1 < 77)? playerPosition+1: playerPosition;
+                pPos.x = (pPos.x+1 < 77)? pPos.x+1: pPos.x;
                 break;
             case 4:
             case 8:
-                playerPosition = (playerPosition-1 > 0)? playerPosition-1: playerPosition;
+                pPos.x = (pPos.x-1 > 0)? pPos.x-1: pPos.x;
                 break;
             case 6:
                 printf("\a");
@@ -145,7 +152,21 @@ void game()
                 logic("setting", "color");
         }
 
-
+        if((ePos.y & 1) != 0)
+        {
+            if((ePos.x + 1) != full.width-2)
+                ePos.x++;
+            else if((ePos.y + 1) != (full.height-1))
+                ePos.y++;
+            else break;
+        }else
+        {
+            if((ePos.x - 1) != 2)
+                ePos.x--;
+            else if((ePos.y + 1) != (full.height-1))
+                ePos.y++;
+            else break;
+        }
     }
 
 
