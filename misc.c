@@ -13,10 +13,10 @@ void delay(unsigned int mseconds)
 }
 
 
-///ASCII map
+///ASCII table
 void printchars()
 {
-    int i;
+    int i, j;
     for(i = 0; i < 256; i++)
     {
         printf("%d, %c   ", i, i);

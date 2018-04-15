@@ -21,7 +21,6 @@
 #define PROMPT_WIDTH 80
 #define PROMPT_HEIGHT 24
 
-
 enum
 {
     ESC       = 27,
@@ -44,6 +43,7 @@ enum
 /*right-lower corner, matrix column and line number product.->\
 //could become the offset's offset from the diagonal.          |
 //(0 = diag, n>0 = line over col, n<0 = col over line)       */
+
 typedef struct{
     char** elements;
     int height;
@@ -57,6 +57,12 @@ typedef struct{
     int x;
     int y;
 }point;
+
+typedef struct list list;
+struct list{
+    void* element;
+    list* next;
+};
 
 //void oldDisplay(image screen);
 //image oldLoad();
@@ -106,30 +112,43 @@ void game()
     char* player = "\xDA\xC1\xBF";                                          //player 'sprite'
     point pPos = {full.width/2-1, 23};                                      //place player on center of last line
     char shot = '^';
-    point sPos = {0};
+    point* sPos = NULL;
     char enemy = '\xCA';                                                    //enemy 'sprite'
-    point ePos = {(full.width/20), (full.height/8)};
-    int step = 4;
+    point* ePos = NULL;
+    int step = 1;
 
-    bool stay = true;
-    int i/*, j*/;
+    bool stay = true;                                                       //run game loop flag
+    int i, j, sNum = 0, eNum = 8;
+
+    ePos = calloc(eNum, sizeof(point));
+    sPos = calloc(1, sizeof(point));
+    for(i = 0; i < eNum; i++)
+    {
+        ePos[i].x = ((i % full.width)*full.width) / 8;                      //initialize enemy locations
+        ePos[i].y = (((int)i/full.width)*full.height) / 10;
+    }
 
     centerCpy(full.elements[pPos.y], player);
 
-    while(stay)
+    while(stay && (eNum > 0))
     {
         checkFocus();
 
         mergeImg(full, bg, &full, 0, 0);
-        //for(i = 0; i < 24; i++)
-        //    strncpy(full.elements[i], bg.elements[i], 80);
 
-        strncpy(full.elements[pPos.y]+pPos.x, player, sizeof(player)-1);
-        full.elements[ePos.y][ePos.x] = enemy;
-        if(sPos.x != 0)
-            full.elements[sPos.y][sPos.x] = shot;
+        strncpy(full.elements[pPos.y] + pPos.x, player, sizeof(player)-1);
+
+        for(i = 0; i < eNum; i++)
+            full.elements[ePos[i].y][ePos[i].x] = enemy;                        //place enemies on screen
+
+        if(sNum != 0)
+            for(i = 0; i < sNum; i++)
+                full.elements[sPos[i].y][sPos[i].x] = shot;                     //places shots on screen
 
         display(full, 24, 80);
+
+        printf("sNum:%d|eNum:%d|sPos.x:%d|sPos.y:%d", sNum, eNum, sPos[sNum-1].x, sPos[sNum-1].y);
+        fflush(stdout);
 
         switch(logic("eval_key", NULL))
         {
@@ -148,44 +167,98 @@ void game()
                 pPos.x = (pPos.x-1 > 0)? pPos.x-1: pPos.x;
                 break;
             case 6:
-                printf("\a");
-                fflush(stdout);
-                sPos.x = pPos.x + 1;
-                sPos.y = pPos.y - 1;
+                realloc(sPos, sizeof(point)*(sNum+1));                      //realloc set location and increment sNum
+                sPos[sNum].x = pPos.x + 1;
+                sPos[sNum].y = pPos.y;
+                sNum++;
                 break;
             default:
-                system("color 0C");
+                system("color 0C");                                         //unrecognized input
                 pause();
                 logic("setting", "color");
         }
 
-        if((ePos.y & 1) != 0)
-        {
-            if((ePos.x + step) < full.width-2)
-                ePos.x += step;
-            else if((ePos.y + 1) < (full.height-1))
-                ePos.y++;
-            else break;
-        }else
-        {
-            if((ePos.x - step) > 2)
-                ePos.x -= step;
-            else if((ePos.y + 1) < (full.height-1))
-                ePos.y++;
-            else break;
-        }
 
-        if(sPos.x != 0)
+        if(eNum != 0)
         {
-            if((sPos.y - step) > 0)
+            for(i = 0; i < eNum; i++)
             {
-                for(i = 1; i <= step; i++)
-                    if(full.elements[sPos.y-i][sPos.x] == enemy)
-                        ePos = (point){2, full.height-2};
-                sPos.y -= step;
+                if((ePos[i].y & 1) != 0)                                    //
+                {
+                    if((ePos[i].x + step) < full.width - 1){
+                        ePos[i].x += step;
+                    }else if((ePos[i].y + 1) < (full.height-1)){
+                        ePos[i].y++;
+                    }
+                    else
+                    {
+                        for(j = i; j < eNum; j++)
+                        {
+                            ePos[j].x = ePos[j+1].x;
+                            ePos[j].y = ePos[j+1].y;
+                        }
+                        eNum--;
+                        ePos = realloc(ePos, sizeof(point)*(eNum));
+                    }
+                }else
+                {
+                    if((ePos[i].x - step) > 0)
+                        ePos[i].x -= step;
+                    else if((ePos[i].y + 1) < (full.height-1))
+                        ePos[i].y++;
+                    else
+                    {
+                        for(j = i; j < eNum; j++)
+                        {
+                            ePos[j].x = ePos[j+1].x;
+                            ePos[j].y = ePos[j+1].y;
+                        }
+                        eNum--;
+                        ePos = realloc(ePos, sizeof(point)*(eNum));
+                    }
+                }
             }
-            else
-                sPos.x = 0;
+        }
+        else break;
+
+        if(sNum != 0)
+        {
+            for(i = 0; i < sNum; i++)
+            {
+                if((sPos[i].y - step) > 0)
+                {
+                    for(j = 1; j <= step; j++)
+                        if(full.elements[sPos[i].y-j][sPos[i].x] == enemy)
+                            ePos[i] = (point){2, full.height-2};            //enemy hit, destroy shot and enemy.
+                    sPos[i].y -= step;
+                }
+                else
+                {
+                    if(sNum > 1)
+                    {
+                        for(j = 0; j < sNum-1; j++)
+                        {
+                            sPos[j].x = sPos[j+1].x;
+                            sPos[j].y = sPos[j+1].y;                        //top of screen hit, destroy shot.(or the top of the screen, that would be fun).
+                        }
+
+                        sNum--;
+                        sPos = (point*)realloc(sPos, (sNum)*sizeof(point));
+                        printf("What I did:\n");
+                        for(j = 0; j < sNum-1; j++)
+                        {
+                            printf("\tShot %d:\n\t x:%d\n\t y:%d", j+1, sPos[j].x, sPos[j].y);
+                        }
+                        fflush(stdout);
+                    }
+                    else
+                    {
+                        sNum--;
+                        free(sPos);
+                        sPos = calloc(1, sizeof(point));
+                    }
+                }
+            }
         }
     }
 
@@ -228,6 +301,10 @@ int logic(char* mode, char* arg)
                             return 7;
                         case KEY_LEFT:
                             return 8;
+                        case KEY_UP:
+                            return 6;
+                        case KEY_DOWN:
+                            return 2;
                     }
                 default:
                     return 9;

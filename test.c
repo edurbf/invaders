@@ -21,9 +21,32 @@ int display(image screen, int width, int height);
 int overlay(image background, image foreground, image* target);
 void genBorder();
 
+void printchars();
+
 int main(void)
 {
-    testfunctions();
+    //testfunctions();
+    printchars();
+}
+
+///ASCII table
+void printchars()
+{
+    int i, j;
+    for(i = 0; i < 256; i++)
+    {
+        if(i%8== 0)
+        {
+            for(j = 0; j < 78; j++)
+                printf("\xC4");
+            printf("\n");
+        }
+
+        printf("\xB3%03d '%c'\xB3 ", i, i);
+    }
+    for(j = 0; j < 78; j++)
+        printf("\xC4");
+    printf("\n");
 }
 
 int testfunctions()
@@ -38,7 +61,7 @@ int testfunctions()
     load(fopen("./files/border.txt", "r"), &foreground);
           //printf("[border: %d, %d, %d]\n", foreground.height, foreground.width, foreground.size);
           display(foreground, foreground.height, foreground.width);
-    load(fopen("./files/mk2.txt", "r"), &logo);
+    load(fopen("./files/cool.txt", "r"), &logo);
           //printf("[logo: %d, %d, %d]\n", logo.height, logo.width, logo.size);
           display(logo, logo.height, logo.width);
 
@@ -207,7 +230,7 @@ void genBorder()
                     ((j==0) || (j==80-1))?
                         '*'
                         :'-'
-                   :((j==0) || (j==80-1))?
+                    :((j==0) || (j==80-1))?
                         '|'
                         :' '), overlay);
         }
